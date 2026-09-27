@@ -116,3 +116,15 @@ Telaah keseluruhan hanya menampilkan jumlah soal dan bahasa terdeteksi. Telaah p
 Kontrak terbaru: `analisis` berisi `jumlahSoal`, `bahasa`, dan `polaButir`. Setiap pola butir menyertakan `jenisTeks`, `tingkatKesulitan`, `taksonomiBarrett`, `levelCEFR`, dan `kisiKisi`, selain field internal sebelumnya. Ganti frontend dan functions sekaligus saat redeploy.
 
 Rujukan kategori Barrett: https://eric.ed.gov/?id=ED064672
+
+## Pembaruan bacaan/teks terdeteksi
+
+Ditambahkan tabel di antara telaah keseluruhan dan telaah per butir, dengan kolom jenis teks, level CEFR bacaan, jumlah kata, dan nomor soal terkait. Setiap bacaan unik tampil sekali walaupun digunakan beberapa soal. Bacaan berbeda dengan genre yang sama tetap memiliki baris terpisah.
+
+`analisis.bacaanTerdeteksi` berisi `id`, `jenisTeks`, `levelCEFR`, dan `teks` (transkripsi sumber). Server menghitung `jumlahKata` dari transkripsi dan menurunkan `untukSoal` dari grup stimulus setiap butir; angka tidak hanya dipercayakan pada perkiraan model. Judul dan isi bacaan dihitung, pertanyaan/opsi/petunjuk ujian dikecualikan. Kata berapostrof atau bertanda hubung dihitung satu kata; angka dihitung sebagai token kata. Akurasi pada pindai bergantung keterbacaan transkripsi. Soal tanpa bacaan menampilkan pesan tidak ditemukan stimulus.
+
+Deploy ulang frontend dan backend bersama untuk menggunakan kontrak baru ini.
+
+## Pengingat unggah
+
+Pop-up tampil saat halaman unggah pertama kali dibuka dan saat pengguna kembali ke tab Unggah berkas. Pesan menegaskan rekomendasi **1 halaman dengan tidak lebih dari 10 soal** untuk hasil terbaik. Tombol Saya mengerti atau Escape menutup pop-up; pengingat ringkas tetap terlihat dan dapat dibuka ulang. Ini rekomendasi kualitas, bukan batas pemrosesan baru.
