@@ -108,3 +108,11 @@ Default Groq memakai Qwen 3.8 27B sebagai model setara pengganti contoh Qwen 3.6
 - PDF pindai lima halaman menghasilkan tiga gambar gabungan; enam halaman ditolak dengan pesan pembagian berkas.
 - Tampilan desktop, ponsel, dan halaman PDF diperiksa secara visual.
 - Layanan Gemini/Groq produksi dan deployment Netlify belum diuji karena tidak tersedia kredensial layanan/hosting dalam sesi pengerjaan.
+
+## Pembaruan telaah per nomor
+
+Telaah keseluruhan hanya menampilkan jumlah soal dan bahasa terdeteksi. Telaah pola berupa tabel satu baris per nomor: jenis teks, jenis soal, tingkat kesulitan, taksonomi Barrett, level CEFR, dan perkiraan kisi-kisi soal (indikator). Seluruh kolom dianalisis per butir dan turut menjadi acuan pembuatan soal baru. Kisi-kisi bukan kutipan dokumen kurikulum resmi; kesulitan dan CEFR berupa perkiraan. Barrett diterapkan pada pemahaman bacaan dan ditandai tidak relevan untuk butir di luar cakupannya.
+
+Kontrak terbaru: `analisis` berisi `jumlahSoal`, `bahasa`, dan `polaButir`. Setiap pola butir menyertakan `jenisTeks`, `tingkatKesulitan`, `taksonomiBarrett`, `levelCEFR`, dan `kisiKisi`, selain field internal sebelumnya. Ganti frontend dan functions sekaligus saat redeploy.
+
+Rujukan kategori Barrett: https://eric.ed.gov/?id=ED064672
