@@ -12,3 +12,17 @@ test('cross-origin request refused',async()=>{const r=await endpoint('analyze')(
 test('per-item review requires all six requested fields',()=>{for(const k of ['jenisTeks','jenisSoal','tingkatKesulitan','taksonomiBarrett','levelCEFR','kisiKisi']){const b=structuredClone(a);delete b.polaButir[0][k];assert.throws(()=>validateAnalysis({valid:true,readable:true,pesan:'',analisis:b}),k);}});
 
 test('passages counted deterministically and linked to all source items',()=>{const b=structuredClone(a);b.bacaanTerdeteksi[0].jumlahKata=999;b.bacaanTerdeteksi[0].untukSoal=[99];validateAnalysis({valid:true,readable:true,pesan:'',analisis:b});assert.equal(b.bacaanTerdeteksi[0].jumlahKata,11);assert.deepEqual(b.bacaanTerdeteksi[0].untukSoal,[1,2]);assert.equal(wordCount("Don't count well-known punctuation — twice!"),5);const missing=structuredClone(a);missing.bacaanTerdeteksi=[];assert.throws(()=>validateAnalysis({valid:true,readable:true,pesan:'',analisis:missing}));const none=structuredClone(a);none.bacaanTerdeteksi=[];none.polaButir.forEach(p=>p.grupStimulus=null);validateAnalysis({valid:true,readable:true,pesan:'',analisis:none});});
+
+test('reuse passages without duplicate output; normalize formatting but reject changed meaning',()=>{
+ const sample=structuredClone(items);sample[0].nomor='1';sample[0].jenisSoal='pilihan ganda';sample[0].kunciJawaban='a.';sample[1].teksBacaan=null;
+ validateItems({items:sample},a,1,2);assert.equal(sample[1].teksBacaan,sample[0].teksBacaan);assert.equal(sample[0].kunciJawaban,'A');
+ const next={...items[1],teksBacaan:items[1].teksBacaan.replaceAll(' ','\n')};validateItems({items:[next]},a,2,2,{s1:items[0].teksBacaan});assert.equal(next.teksBacaan,items[0].teksBacaan);
+ assert.throws(()=>validateItems({items:[{...items[1],teksBacaan:'The library opens at ten.'}]},a,2,2,{s1:items[0].teksBacaan}));
+});
+test('generation slot receives 50-second budget and exposes sanitized quota error',async()=>{
+ const oldFetch=global.fetch,oldTimer=global.setTimeout,env={...process.env};process.env.GEMINI_API_KEY_1='private-key';let budget,calls=0;
+ global.setTimeout=(fn,ms)=>{budget=ms;return oldTimer(fn,ms);};global.fetch=async()=>{calls++;return{ok:false,status:429};};
+ try{const r=await endpoint('generate')(event({textContent:'English test',analisis:structuredClone(a),start:1,end:2,providerSlot:0}));assert.equal(budget,50000);assert.equal(calls,1);assert.equal(r.statusCode,429);assert.equal(JSON.parse(r.body).error.code,'RATE_LIMIT');assert.ok(!r.body.includes('private-key'));
+ delete process.env.GEMINI_API_KEY_2;const missing=await endpoint('generate')(event({textContent:'English test',analisis:structuredClone(a),start:1,end:1,providerSlot:1}));assert.equal(JSON.parse(missing.body).error.code,'CONFIG_SLOT');assert.equal(calls,1);
+ }finally{global.fetch=oldFetch;global.setTimeout=oldTimer;process.env=env;}
+});

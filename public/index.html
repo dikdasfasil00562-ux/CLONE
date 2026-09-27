@@ -22,7 +22,7 @@
 <script>
 'use strict';
 const $=id=>document.getElementById(id);
-const state={mode:'upload',source:null,analysis:null,items:[],busy:false,timer:null,file:null};
+const state={batchSize:2,mode:'upload',source:null,analysis:null,items:[],busy:false,timer:null,file:null};
 const libs={mammoth:['https://cdn.jsdelivr.net/npm/mammoth@1.9.1/mammoth.browser.min.js',()=>window.mammoth],pdfjs:['https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',()=>window.pdfjsLib],docx:['https://cdn.jsdelivr.net/npm/docx@9.5.1/dist/index.iife.js',()=>window.docx],pdfmake:['https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.12/pdfmake.min.js',()=>window.pdfMake],fonts:['https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.12/vfs_fonts.js',()=>window.pdfMake?.vfs]};
 const pending={};
 function library(name){const [url,get]=libs[name];if(get())return Promise.resolve(get());if(pending[name])return pending[name];return pending[name]=new Promise((resolve,reject)=>{const s=document.createElement('script');const failed=()=>{clearTimeout(timer);delete pending[name];s.remove();reject(new Error('Komponen dokumen gagal dimuat. Periksa koneksi internet dan coba kembali.'));};const timer=setTimeout(failed,25000);s.src=url;s.onload=()=>{clearTimeout(timer);if(get())resolve(get());else failed();};s.onerror=failed;document.head.append(s);});}
@@ -63,8 +63,8 @@ async function source(){
 async function request(endpoint,data){
  const payload=JSON.stringify(data);if(new Blob([payload]).size>4400000)throw new Error('Ukuran permintaan terlalu besar. Bagi dokumen menjadi lebih kecil.');
  const ctl=new AbortController(),timer=setTimeout(()=>ctl.abort(),60000);
- try{const r=await fetch('/.netlify/functions/'+endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:payload,signal:ctl.signal});let out;try{out=await r.json();}catch{throw new Error('Respons server tidak lengkap [HTTP_'+r.status+']. Isian Anda tetap tersedia. Pastikan aplikasi dijalankan melalui Netlify.');}if(!r.ok)throw new Error((out.error?.message||'Permintaan belum berhasil.')+' ['+(out.error?.code||r.status)+']');return out;}
- catch(e){if(e.name==='AbortError')throw new Error('Waktu pemrosesan habis. Isian dan hasil sementara tetap tersedia; silakan coba kembali.');if(e instanceof TypeError)throw new Error('Koneksi terputus. Isian tetap tersedia; periksa jaringan dan coba kembali.');throw e;}finally{clearTimeout(timer);}
+ try{const r=await fetch('/.netlify/functions/'+endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:payload,signal:ctl.signal});let out;try{out=await r.json();}catch{const e=new Error('Respons server tidak lengkap [HTTP_'+r.status+']. Isian Anda tetap tersedia.');e.code='HTTP_'+r.status;throw e;}if(!r.ok){const e=new Error((out.error?.message||'Permintaan belum berhasil.')+' ['+(out.error?.code||r.status)+']');e.code=out.error?.code||('HTTP_'+r.status);throw e;}return out;}
+ catch(e){if(e.name==='AbortError'){const timeout=new Error('Waktu pemrosesan habis. Isian dan hasil sementara tetap tersedia; silakan coba kembali.');timeout.code='SERVICE_TIMEOUT';throw timeout;}if(e instanceof TypeError)throw new Error('Koneksi terputus. Isian tetap tersedia; periksa jaringan dan coba kembali.');throw e;}finally{clearTimeout(timer);}
 }
 $('analyze').onclick=async()=>{
  clearError();$('review').hidden=true;$('rejected').hidden=true;loading(true,'Menelaah soal sumber');
@@ -72,13 +72,25 @@ $('analyze').onclick=async()=>{
  catch(e){step(1);error(e);}finally{loading(false);}
 };
 function showAnalysis(){const a=state.analysis;$('stats').replaceChildren();for(const [label,key]of[['Jumlah soal','jumlahSoal'],['Bahasa terdeteksi','bahasa']]){const d=document.createElement('div');d.className='stat';const s=document.createElement('small');s.textContent=label;const v=document.createElement('strong');v.textContent=a[key];d.append(s,v);$('stats').append(d);}const passages=a.bacaanTerdeteksi||[];$('passage-rows').replaceChildren();$('passage-table-wrap').hidden=!passages.length;$('passage-note').hidden=!passages.length;$('no-passages').hidden=!!passages.length;for(const t of passages){const row=document.createElement('tr');for(const value of [t.jenisTeks,t.levelCEFR,t.jumlahKata,t.untukSoal.join(', ')]){const cell=document.createElement('td');cell.textContent=value;row.append(cell);}$('passage-rows').append(row);}$('pattern-rows').replaceChildren();for(const p of a.polaButir){const row=document.createElement('tr');for(const key of ['nomor','jenisTeks','jenisSoal','tingkatKesulitan','taksonomiBarrett','levelCEFR','kisiKisi']){const cell=document.createElement(key==='nomor'?'th':'td');if(key==='nomor')cell.scope='row';cell.textContent=p[key];row.append(cell);}$('pattern-rows').append(row);}$('review').hidden=false;}
+async function generateBatch(data){
+ const failures=[];
+ for(let providerSlot=0;providerSlot<3;providerSlot++){
+  $('loading-count').textContent='Soal '+data.start+'–'+data.end+' dari '+state.analysis.jumlahSoal+' · percobaan '+(providerSlot+1)+' dari 3';
+  try{return await request('generate',{...data,providerSlot});}
+  catch(e){if(e.code==='CONFIG_SLOT')continue;failures.push(e);if(['RANGE','STIMULI','PAYLOAD','INVALID_ANALYSIS','INVALID_PASSAGES','ORIGIN','HTTP_404'].includes(e.code))throw e;}
+ }
+ const e=failures.at(-1)||Object.assign(new Error('Layanan belum dikonfigurasi. Hubungi pengelola. [CONFIG]'),{code:'CONFIG'});
+ e.canReduce=failures.some(f=>/^(INVALID_|OUTPUT_|SERVICE_TIMEOUT|HTTP_504)/.test(f.code||''));
+ if(failures.length>1)e.message+=' Kode percobaan: '+failures.map(f=>f.code||'NETWORK').join(', ')+'.';
+ throw e;
+}
 async function generate(){
  if(state.busy||!state.analysis)return;clearError();step(3);$('downloads').hidden=true;$('items').replaceChildren();$('retry-box').hidden=true;$('result-bottom').hidden=true;$('result-status').hidden=true;loading(true,'Membuat soal baru');
- try{const total=state.analysis.jumlahSoal;while(state.items.length<total){const start=state.items.length+1,end=Math.min(start+3,total),generatedStimuli={};for(const x of state.items){const g=state.analysis.polaButir[x.nomor-1].grupStimulus;if(g)generatedStimuli[g]=x.teksBacaan;}$('loading-count').textContent='Soal '+start+'–'+end+' dari '+total;const out=await request('generate',{...state.source,analisis:state.analysis,start,end,generatedStimuli});if(!Array.isArray(out.items)||out.items.length!==end-start+1||out.items.some((x,i)=>x.nomor!==start+i))throw new Error('Jumlah atau urutan soal belum lengkap. Coba kembali untuk melanjutkan.');state.items.push(...out.items);}
+ try{const total=state.analysis.jumlahSoal;while(state.items.length<total){const start=state.items.length+1,end=Math.min(start+state.batchSize-1,total),generatedStimuli={};for(const x of state.items){const g=state.analysis.polaButir[x.nomor-1].grupStimulus;if(g)generatedStimuli[g]=x.teksBacaan;}$('loading-count').textContent='Soal '+start+'–'+end+' dari '+total;let out;try{out=await generateBatch({...state.source,analisis:state.analysis,start,end,generatedStimuli});}catch(e){if(state.batchSize>1&&e.canReduce){state.batchSize=1;continue;}throw e;}if(!Array.isArray(out.items)||out.items.length!==end-start+1||out.items.some((x,i)=>x.nomor!==start+i))throw new Error('Jumlah atau urutan soal belum lengkap. Coba kembali untuk melanjutkan.');state.items.push(...out.items);}
  renderItems();$('downloads').hidden=false;$('result-bottom').hidden=false;$('result-status').textContent=total+' soal selesai dibuat. Tinjau ketepatan soal dan kunci sebelum digunakan.';$('result-status').hidden=false;
  }catch(e){error(e);$('retry-box').hidden=false;}finally{loading(false);}
 }
-$('generate').onclick=()=>{state.items=[];generate();};$('retry').onclick=generate;
+$('generate').onclick=()=>{state.items=[];state.batchSize=2;generate();};$('retry').onclick=generate;
 document.querySelectorAll('.back').forEach(b=>b.onclick=()=>{if(state.busy)return;if(state.items.length&&!confirm('Kembali ke sumber? Hasil soal dan suntingan akan dihapus ketika analisis baru dimulai.'))return;clearError();step(1);});
 function field(parent,label,value,oninput,cls=''){const wrap=document.createElement('label');wrap.className='field '+cls;wrap.append(document.createTextNode(label));const t=document.createElement('textarea');t.value=value||'';t.rows=Math.min(12,Math.max(2,(value||'').split('\n').length));t.oninput=()=>oninput(t.value);wrap.append(t);parent.append(wrap);return t;}
 function renderItems(){

@@ -56,7 +56,7 @@ Frontend diletakkan dalam `public/` agar kode backend dan dokumen konfigurasi ti
 3. PDF diekstrak per halaman. Jika rata-rata teks rendah atau ada halaman minim teks, dokumen diproses sebagai gambar. PDF pindai/campuran maksimal **5 halaman**. Dokumen yang lebih panjang ditolak dengan petunjuk membagi berkas, tidak dipotong diam-diam. PDF teks maksimal 100 halaman.
 4. Lima halaman gambar digabung berpasangan menjadi maksimal **3 gambar** agar cocok dengan batas vision Groq yang diperiksa pada 27 September 2026. Semua halaman tetap dikirim dalam urutan asli. Payload permintaan dibatasi di bawah batas fungsi Netlify.
 5. Hasil telaah menunggu tombol **Lanjut ke Pembuatan Soal**; tidak otomatis membuat soal.
-6. Pembuatan dilakukan per **4 butir**. Tiap permintaan mencoba Gemini 1 → Gemini 2 → Groq. Anggaran total layanan sekitar 53 detik per permintaan, dibagi di antara kunci yang tersedia; browser berhenti menunggu setelah 60 detik.
+6. Pembuatan dimulai per **2 butir**, otomatis turun menjadi **1 butir** bila hasil terputus/tidak lengkap atau timeout setelah seluruh layanan dicoba. Browser mencoba Gemini 1 → Gemini 2 → Groq melalui permintaan terpisah (`providerSlot` 0–2). Masing-masing mendapat anggaran 50 detik; browser menunggu maksimal 60 detik per permintaan. Analisis awal tetap memakai fallback dalam satu permintaan dengan anggaran total 53 detik.
 7. Jika satu batch gagal, hasil batch sebelumnya tetap di memori browser. **Coba kembali** melanjutkan batch yang gagal, tidak menggandakan soal. Unduhan baru tersedia setelah semua butir lengkap.
 8. Bacaan bersama menggunakan identitas grup internal. Suntingan pada satu bacaan disinkronkan ke soal lain yang memakai bacaan itu. Pada ekspor, bacaan bersama hanya ditampilkan sekali, dengan nomor soal terkait.
 9. Semua jenis soal mengikuti sumber. Isian/uraian tidak dipaksa menjadi pilihan ganda. Soal menjodohkan, kategori, dan pilihan kompleks ditulis melalui petunjuk, daftar pernyataan/pilihan, serta kunci lengkap.
@@ -78,7 +78,10 @@ Tidak ada penilaian rubrik tambahan. Validasi memeriksa struktur, jumlah, nomor 
 | Pesan/kode | Tindakan |
 | --- | --- |
 | `CONFIG` | Isi kunci API pada scope Functions lalu redeploy. |
-| `PROCESS_FAILED` | Periksa kuota, akses model, dan log function; coba ulang atau bagi dokumen. |
+| `RATE_LIMIT` | Kuota/batas permintaan layanan tercapai; tunggu atau periksa kuota. |
+| `SERVICE_TIMEOUT` | Layanan tidak selesai dalam anggaran waktu; coba kembali. |
+| `SERVICE_AUTH` / `MODEL_UNAVAILABLE` | Periksa kunci, izin akun, dan nama model pada environment. |
+| `OUTPUT_INCOMPLETE` / `OUTPUT_JSON` / `INVALID_ITEM` | Hasil belum lengkap/valid; sistem mencoba layanan lain dan batch lebih kecil. |
 | HTTP 404 / respons bukan JSON | Pastikan functions ikut dideploy; jangan jalankan hanya sebagai situs statis. |
 | HTTP 504 / waktu habis | Coba lagi; hasil batch sebelumnya tetap ada. Kurangi ukuran sumber bila berulang. |
 | Komponen dokumen gagal dimuat | Periksa akses ke jsDelivr dan cdnjs; dibutuhkan untuk impor/ekspor. |
@@ -128,3 +131,15 @@ Deploy ulang frontend dan backend bersama untuk menggunakan kontrak baru ini.
 ## Pengingat unggah
 
 Pop-up tampil saat halaman unggah pertama kali dibuka dan saat pengguna kembali ke tab Unggah berkas. Pesan menegaskan rekomendasi **1 halaman dengan tidak lebih dari 10 soal** untuk hasil terbaik. Tombol Saya mengerti atau Escape menutup pop-up; pengingat ringkas tetap terlihat dan dapat dibuka ulang. Ini rekomendasi kualitas, bukan batas pemrosesan baru.
+
+## Perbaikan kegagalan langkah ketiga
+
+Kode sebelumnya membagi 53 detik ke tiga kunci (sekitar 17 detik per percobaan), lalu menyamarkan semua kegagalan sebagai PROCESS_FAILED. Validasi juga membandingkan bacaan berulang secara persis. Keduanya merupakan titik rawan yang ditemukan dari kode; penyebab kejadian pada akun produksi tidak dapat dipastikan tanpa log.
+
+Revisi memakai permintaan terpisah per slot layanan, sehingga tiap percobaan generate memperoleh 50 detik tanpa memperpanjang satu eksekusi Netlify melewati 60 detik. Fallback tetap berurutan. Hasil batch sebelumnya disimpan saat gagal; tombol coba kembali melanjutkan dari nomor yang belum selesai. Retry dibatasi tiga layanan per batch, dengan satu penurunan ukuran batch dari dua ke satu. Kuota/izin yang gagal tidak memicu penurunan batch tanpa alasan.
+
+Bacaan baru dikembalikan sekali untuk grup yang sama, lalu server menempelkan bacaan tersebut pada butir terkait. Bacaan yang sudah ada menjadi acuan tetap. Perbedaan spasi/baris baru dinormalisasi, tetapi perubahan isi substantif tetap ditolak. Nomor berbentuk string angka, kapitalisasi jenis soal, dan kunci seperti a. dinormalisasi tanpa mengubah jawaban. Jumlah soal, opsi, kunci, dan kelengkapan tetap divalidasi.
+
+Log function memuat slot, rentang soal, durasi, dan kode galat tanpa isi soal/kunci API. UI menampilkan kode penyebab, bukan pesan PROCESS_FAILED umum. Sembilan tes backend serta uji browser pemulihan batch/fallback/resume lulus menggunakan respons simulasi. API produksi belum diuji.
+
+**Deploy ulang public/index.html dan seluruh netlify/functions bersama, lalu muat ulang halaman dan lakukan analisis baru.** Alur generate baru bergantung pada kedua bagian. Rujukan batas eksekusi: https://docs.netlify.com/build/functions/configuration/
