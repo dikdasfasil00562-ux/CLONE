@@ -26,3 +26,15 @@ test('generation slot receives 50-second budget and exposes sanitized quota erro
  delete process.env.GEMINI_API_KEY_2;const missing=await endpoint('generate')(event({textContent:'English test',analisis:structuredClone(a),start:1,end:1,providerSlot:1}));assert.equal(JSON.parse(missing.body).error.code,'CONFIG_SLOT');assert.equal(calls,1);
  }finally{global.fetch=oldFetch;global.setTimeout=oldTimer;process.env=env;}
 });
+
+test('independent review omits original key and maps key disagreement to warning',()=>{
+ const {reviewPrompt,validateReviews}=require('../netlify/functions/lib/core.cjs');const x={...items[0],kunciJawaban:'SECRET_ANSWER'};
+ const prompt=reviewPrompt({items:[x],analisis:a},[1]);assert.ok(!prompt.includes('SECRET_ANSWER'));assert.ok(!prompt.includes('kunciJawaban'));
+ const out=validateReviews({reviews:[{nomor:1,jawabanMandiri:'B',dasarJawaban:'The passage says so.',terjawab:true,sesuaiIndikator:true,pengecohBaik:true,catatan:[]}]},[items[0]]);assert.equal(out.reviews[0].status,'perlu_revisi');assert.equal(out.reviews[0].kunciSesuai,false);
+});
+test('noncontiguous source numbers keep order and share one passage',()=>{
+ const b=structuredClone(a);b.jumlahSoal=3;b.polaButir.push({...b.polaButir[1],nomor:3});const out=validateItems({items:[{...items[0]},{...items[1],nomor:3,teksBacaan:null}]},b,1,3,{},[1,3]);assert.equal(out.items[1].teksBacaan,items[0].teksBacaan);
+});
+test('retry guidance respects seconds, date and Gemini retry info',()=>{
+ const {retryDelay}=require('../netlify/functions/lib/core.cjs');assert.equal(retryDelay({headers:{get:()=> '42'}},{}),42);assert.equal(retryDelay({headers:{get:()=>null}},{error:{details:[{'@type':'google.rpc.RetryInfo',retryDelay:'7.5s'}]}}),8);assert.equal(retryDelay({headers:{get:()=>new Date(45000).toUTCString()}},{},0),45);
+});

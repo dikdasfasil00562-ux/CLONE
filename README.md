@@ -1,21 +1,19 @@
-# Test Items Clone
+# Test Items Clone — versi DPLY
 
-Aplikasi penyusun soal paralel Bahasa Inggris oleh **Suryo Agung Nugroho**.
+Aplikasi soal paralel Bahasa Inggris oleh **Suryo Agung Nugroho**. Pembaruan 28 September 2026.
 
-## Jalankan di Netlify
+## Memasang / memperbarui Netlify
 
-**Paket ini berisi kode siap-deploy, bukan situs yang sudah online.** Pemrosesan memerlukan kunci API aktif milik pengelola. Jangan menaruh kunci di `index.html`, GitHub, atau percakapan.
+Paket ini berisi kode siap-deploy, bukan situs yang sudah online. Pemrosesan memerlukan API key aktif. Jangan menaruh kunci di frontend atau repository publik.
 
-### Cara A — GitHub ke Netlify
+1. Ekstrak ZIP. Isi folder `test-items-clone` menjadi akar repository: `public/`, `netlify/`, `netlify.toml`, `package.json`.
+2. Import repository ke Netlify, atau perbarui repository proyek yang sudah digunakan.
+3. Build command kosong, publish directory `public`, functions directory `netlify/functions`. Konfigurasi tersedia di `netlify.toml`.
+4. Isi environment di pengaturan proyek, scope **Functions**, konteks **Production**. Isi konteks Deploy Preview juga jika digunakan.
+5. Deploy ulang **seluruh paket**, termasuk endpoint baru `review` dan `passage`.
+6. Muat ulang halaman, unggah sumber, dan lakukan telaah baru. Jangan meneruskan tab dari versi lama.
 
-1. Ekstrak ZIP ini. Unggah isi folder `test-items-clone` ke repository GitHub: `netlify.toml`, `package.json`, `public/`, dan `netlify/` harus berada di akar repository.
-2. Di Netlify, pilih tambah/import project dari repository GitHub tersebut.
-3. Biarkan build command kosong. Publish directory: `public`. Functions directory: `netlify/functions` (sudah diatur pada `netlify.toml`).
-4. Di pengaturan proyek Netlify, buka **Environment variables**. Tambahkan tiga kunci berikut dengan scope **Functions** dan konteks **Production**. Jika memakai Deploy Preview, tambahkan konteks tersebut juga.
-5. Deploy atau redeploy setelah mengisi variabel.
-6. Buka alamat `https://nama-situs.netlify.app`. Uji pertama dengan 2–4 soal melalui tab Tempel teks, kemudian berkas Word, PDF teks, dan PDF pindai.
-
-| Environment variable | Nilai |
+| Variabel | Isi |
 | --- | --- |
 | `GEMINI_API_KEY_1` | Kunci Gemini pertama |
 | `GEMINI_API_KEY_2` | Kunci Gemini kedua |
@@ -23,123 +21,101 @@ Aplikasi penyusun soal paralel Bahasa Inggris oleh **Suryo Agung Nugroho**.
 | `GEMINI_MODEL` | Opsional; default `gemini-3.5-flash` |
 | `GROQ_MODEL` | Opsional; default `qwen/qwen3.8-27b` |
 
-Isi ketiga kunci agar semua tahap fallback tersedia. Jika hanya satu kunci terisi, aplikasi memakai layanan yang tersedia. Dua kunci Gemini pada proyek dengan kuota yang sama dapat tetap berbagi batas kuota.
+Dua kunci Gemini dari proyek yang sama berbagi batas proyek. Menambah kunci tidak menambah kuota. Pilih model yang tersedia pada akun dan mendukung vision serta keluaran JSON.
 
-### Cara B — Netlify CLI
-
-Dengan Node.js 22+ terpasang, buka terminal di folder hasil ekstrak:
+Alternatif Netlify CLI (Node.js 22+), jalankan dari folder proyek:
 
 ```sh
 npx netlify-cli login
 npx netlify-cli deploy --prod --dir=public --functions=netlify/functions
 ```
 
-Ikuti pilihan membuat atau menghubungkan site, lalu isi variabel di dashboard Netlify dan lakukan deploy ulang. Pengembangan lokal dapat memakai `npx netlify-cli dev` setelah variabel lokal diatur. `.env.example` hanya berisi nama variabel; jangan unggah `.env` berisi kunci.
+Untuk lokal gunakan `npx netlify-cli dev`. Jangan hanya menyeret `public/` ke Netlify Drop: deployment statis saja tidak memasang functions. Tidak ada bundler frontend; `public/index.html` memuat CSS/JS inline dan memuat pustaka dokumen dari CDN saat diperlukan.
 
-**Jangan hanya menyeret folder `public` ke Netlify Drop.** Situs statis saja tidak menyertakan backend pemrosesan. Membuka `index.html` langsung juga tidak dapat menjalankan endpoint server.
+## Alur penggunaan
 
-## Isi paket
+### 1. Sumber
 
-- `public/index.html`: satu frontend dengan CSS dan JavaScript inline; komponen dokumen dimuat dari CDN saat diperlukan.
-- `netlify/functions/analyze.cjs`: endpoint telaah.
-- `netlify/functions/generate.cjs`: endpoint pembuatan.
-- `netlify/functions/lib/core.cjs`: validasi, prompt, pemanggilan layanan, fallback, dan penanganan galat.
-- `netlify.toml`: direktori publish/functions dan header dasar.
-- `tests/core.test.cjs`: pengujian validasi dan fallback dengan respons layanan simulasi.
+- Unggah Word/PDF atau tempel teks.
+- Berkas diekstrak untuk pratinjau sebelum analisis; tersedia **Lihat seluruh sumber** dan **Ganti berkas**.
+- PDF pindai ditampilkan sebagai gambar sumber, bukan diperlakukan seolah sudah menjadi teks.
+- Pengingat **1 halaman, maksimal 10 soal** muncul sekali per sesi tab; pengingat ringkas tetap ada dan bisa dibuka ulang.
+- Pratinjau Word menampilkan hasil ekstraksi teks, bukan reproduksi layout visual.
 
-Frontend diletakkan dalam `public/` agar kode backend dan dokumen konfigurasi tidak ikut dipublikasikan sebagai aset statis. Tidak ada bundler untuk frontend dan tidak perlu build aplikasi. Netlify tetap memaketkan functions pada saat deployment.
+### 2. Telaah dan koreksi
 
-## Alur dan batas teknis
+- Telaah keseluruhan: jumlah soal dan bahasa.
+- Tabel bacaan: Teks 1/2/…, genre, CEFR bacaan, jumlah kata, nomor soal terkait; tombol melihat bacaan sumber.
+- Tabel pola per nomor: genre, jenis soal, kesulitan, Barrett, CEFR soal, indikator kisi-kisi. Header tetap terlihat saat tabel digulir; penjelasan panjang dapat dibuka.
+- **Koreksi hasil telaah / kisi-kisi** memungkinkan guru mengubah indikator, jenis teks/soal, kesulitan, Barrett, CEFR, pola, dan jumlah opsi. Koreksi menjadi acuan pembuatan. Tombol simpan memperbarui tabel; tombol lanjut juga menggunakan nilai koreksi terbaru yang valid.
+- Catatan kelemahan sumber ditampilkan bila ditemukan. Kisi-kisi adalah indikator hasil inferensi, bukan klaim kode CP/KD resmi. Kesulitan dan CEFR tetap perkiraan. Barrett ditandai tidak relevan bila tidak mengukur pemahaman bacaan.
 
-1. Unggah `.docx`/`.pdf` atau tempel teks. Berkas maksimal 20 MB; teks maksimal 160.000 karakter dan 200 soal per dokumen.
-2. Word diekstrak sebagai teks menggunakan Mammoth. Gambar tertanam Word tidak dibaca; simpan dokumen bergambar sebagai PDF pindai jika gambar diperlukan untuk menjawab soal.
-3. PDF diekstrak per halaman. Jika rata-rata teks rendah atau ada halaman minim teks, dokumen diproses sebagai gambar. PDF pindai/campuran maksimal **5 halaman**. Dokumen yang lebih panjang ditolak dengan petunjuk membagi berkas, tidak dipotong diam-diam. PDF teks maksimal 100 halaman.
-4. Lima halaman gambar digabung berpasangan menjadi maksimal **3 gambar** agar cocok dengan batas vision Groq yang diperiksa pada 27 September 2026. Semua halaman tetap dikirim dalam urutan asli. Payload permintaan dibatasi di bawah batas fungsi Netlify.
-5. Hasil telaah menunggu tombol **Lanjut ke Pembuatan Soal**; tidak otomatis membuat soal.
-6. Pembuatan dimulai per **2 butir**, otomatis turun menjadi **1 butir** bila hasil terputus/tidak lengkap atau timeout setelah seluruh layanan dicoba. Browser mencoba Gemini 1 → Gemini 2 → Groq melalui permintaan terpisah (`providerSlot` 0–2). Masing-masing mendapat anggaran 50 detik; browser menunggu maksimal 60 detik per permintaan. Analisis awal tetap memakai fallback dalam satu permintaan dengan anggaran total 53 detik.
-7. Jika satu batch gagal, hasil batch sebelumnya tetap di memori browser. **Coba kembali** melanjutkan batch yang gagal, tidak menggandakan soal. Unduhan baru tersedia setelah semua butir lengkap.
-8. Bacaan bersama menggunakan identitas grup internal. Suntingan pada satu bacaan disinkronkan ke soal lain yang memakai bacaan itu. Pada ekspor, bacaan bersama hanya ditampilkan sekali, dengan nomor soal terkait.
-9. Semua jenis soal mengikuti sumber. Isian/uraian tidak dipaksa menjadi pilihan ganda. Soal menjodohkan, kategori, dan pilihan kompleks ditulis melalui petunjuk, daftar pernyataan/pilihan, serta kunci lengkap.
-10. Word dan PDF memakai A4. Kunci berada pada halaman baru, tidak tercampur dalam naskah soal. Pengunduhan memakai suntingan terbaru.
+### 3. Pembuatan, pemeriksaan, suntingan
 
-Data hanya berada dalam memori halaman selama sesi. Muat ulang/menutup tab akan menghapus sumber dan hasil. Tidak ada database atau penyimpanan soal di server aplikasi. Konten tetap dikirim ke penyedia layanan untuk diproses dan mengikuti kebijakan data penyedia tersebut. Log aplikasi hanya memuat jenis kegagalan, urutan layanan, dan kode status; tidak mencatat soal atau kunci API.
+- Pembuatan mengelompokkan soal menurut bacaan, bukan sekadar memotong nomor berurutan. Soal mandiri memiliki kelompok sendiri.
+- Kelompok hingga enam soal dibuat bersama. Untuk kelompok lebih panjang, bacaan baru dibuat dan ditetapkan lebih dulu, kemudian soal dibuat bertahap dengan bacaan tetap.
+- Jika seluruh percobaan gagal karena hasil terputus/tidak valid atau timeout, kelompok dipecah menjadi dua lalu satu soal. Pembuatan bacaan awal tetap mempertimbangkan seluruh indikator dalam kelompok.
+- Setelah kelompok selesai, sistem memanggil pemeriksa melalui permintaan terpisah. **Kunci awal dan soal sumber tidak dimasukkan ke prompt pemeriksa.** Pemeriksa menjawab dari soal baru, memberikan dasar jawaban, dan menilai keterjawaban, indikator serta pengecoh.
+- Server membandingkan jawaban pemeriksaan dengan kunci. Perbedaan pada PG tunggal ditandai; jawaban uraian/mapping dengan redaksi berbeda perlu perbandingan manual. Tidak ada penggantian kunci diam-diam.
+- Pemeriksaan ini bukan jaminan benar dan bukan pengujian psikometrik. Guru tetap meninjau hasil. Sistem tidak mengklaim memakai penyedia/model berbeda; independensi berarti permintaan baru tanpa kunci awal.
+- Jika pemeriksaan gagal, soal yang sudah selesai tetap tersedia untuk ditinjau dan diunduh. Statusnya **Belum diperiksa**.
+- **Perbaiki soal ini** hanya mengganti butir yang dipilih, mengikuti indikator dan bacaan tetap, lalu memeriksanya kembali. Bila gagal, butir lama tetap ada. Jika masalah terletak pada bacaan, guru dapat menyunting bacaan bersama lalu memeriksa ulang semua soal terkait.
+- **Telaah mendalam** opsional menambah pemeriksaan petunjuk jawaban, kesejajaran opsi, tuntutan bahasa dan Barrett. Pemanggilan tambahan memakai kuota layanan.
 
-## Kontrak endpoint
+## Tampilan hasil
 
-Endpoint utama tetap `/.netlify/functions/analyze` dan `/.netlify/functions/generate` dengan input/hasil sesuai master prompt. Ekstensi internal untuk konsistensi dan batching:
+- Pratinjau naskah menjadi tampilan awal. Bacaan tampil sekali untuk seluruh soal terkait.
+- Mode **Sunting soal**, atau tombol sunting per butir/bacaan.
+- Kunci dan dasar jawaban berada dalam panel yang dapat dibuka, dengan pilihan **Tampilkan kunci**.
+- Navigasi nomor di kiri pada desktop; pilihan nomor ringkas pada ponsel.
+- Toolbar mode dan unduhan tetap mudah dijangkau saat menggulir.
+- Progres menunjukkan jumlah butir yang benar-benar diterima, bukan persentase perkiraan.
+- Saat gagal, hasil parsial masih bisa dilihat. Tombol lanjut hanya membuat soal yang belum ada.
+- **Hentikan sementara** membatalkan permintaan browser dan mempertahankan hasil diterima. Permintaan yang sudah sampai ke penyedia mungkin tetap dihitung sebagai penggunaan.
+- Suntingan butir membatalkan pemeriksaan butir itu. Suntingan bacaan membatalkan pemeriksaan seluruh soal terkait; bukti lama tidak lagi ditampilkan sebagai valid.
+- Word/PDF mengambil suntingan terkini, mengelompokkan bacaan, dan meletakkan kunci pada halaman terpisah. Catatan pemeriksaan tidak dimasukkan ke naskah siswa. Unduhan hanya tersedia setelah jumlah soal lengkap.
 
-- `analisis.polaButir`: satu blueprint per soal (`nomor`, `jenisSoal`, `jumlahPilihan`, `grupStimulus`, `pola`).
-- Generate menerima `start`, `end`, dan `generatedStimuli` (peta ID grup ke bacaan baru) secara opsional. Frontend selalu menggunakan batching. Tanpa rentang, endpoint mencoba menghasilkan seluruh soal sekaligus, yang dapat melebihi batas waktu untuk dokumen panjang.
+## Kuota, waktu, dan pemulihan
 
-Tidak ada penilaian rubrik tambahan. Validasi memeriksa struktur, jumlah, nomor soal, jumlah pilihan, format kunci PG tunggal, dan konsistensi bacaan; kesetaraan pedagogis/CEFR serta kebenaran isi tetap perlu ditinjau guru.
+- Setiap percobaan memakai satu slot layanan dalam satu Netlify request: Gemini 1 → Gemini 2 → Groq. Kunci tetap di server.
+- Anggaran per percobaan 50 detik; batas tunggu browser 60 detik. Anggaran keluaran disesuaikan menurut operasi/jumlah soal, tidak selalu 16.384 token.
+- Backend membaca `Retry-After` atau informasi retry Google, lalu mengirim durasi tunggu yang aman tanpa membocorkan isi error penyedia.
+- Browser melewati slot yang masih cooldown. Jika ada waktu tunggu hingga 60 detik, tersedia hitung mundur dan maksimal satu putaran retry tambahan. Waktu tunggu panjang ditampilkan sebelum tombol lanjut aktif. Tidak ada retry tanpa batas.
+- Kuota harian yang teridentifikasi tidak langsung dicoba lagi; reset sebenarnya tetap mengikuti penyedia. Bila penyedia tidak memberi waktu tunggu, digunakan jeda awal 30 detik untuk pembatasan sementara.
+- Generate mengirim konteks kelompok yang relevan ke model. Sumber lengkap/gambar tidak dikirim ulang ke model jika telaah sudah menghasilkan kutipan soal per butir. Frontend tetap membawa blueprint sesi ke server karena tidak ada database.
+- Kuota habis tidak bisa ditambah oleh perbaikan aplikasi. Pemeriksaan tambahan tetap memerlukan permintaan tambahan.
 
-## Jika terjadi masalah
-
-| Pesan/kode | Tindakan |
+| Kode | Makna / tindakan |
 | --- | --- |
-| `CONFIG` | Isi kunci API pada scope Functions lalu redeploy. |
-| `RATE_LIMIT` | Kuota/batas permintaan layanan tercapai; tunggu atau periksa kuota. |
-| `SERVICE_TIMEOUT` | Layanan tidak selesai dalam anggaran waktu; coba kembali. |
-| `SERVICE_AUTH` / `MODEL_UNAVAILABLE` | Periksa kunci, izin akun, dan nama model pada environment. |
-| `OUTPUT_INCOMPLETE` / `OUTPUT_JSON` / `INVALID_ITEM` | Hasil belum lengkap/valid; sistem mencoba layanan lain dan batch lebih kecil. |
-| HTTP 404 / respons bukan JSON | Pastikan functions ikut dideploy; jangan jalankan hanya sebagai situs statis. |
-| HTTP 504 / waktu habis | Coba lagi; hasil batch sebelumnya tetap ada. Kurangi ukuran sumber bila berulang. |
-| Komponen dokumen gagal dimuat | Periksa akses ke jsDelivr dan cdnjs; dibutuhkan untuk impor/ekspor. |
-| PDF pindai lebih dari 5 halaman | Bagi sumber dengan mempertahankan bacaan beserta soal terkait dalam berkas yang sama. |
+| `RATE_LIMIT` | Batas sementara atau jenis kuota belum diketahui; ikuti waktu tunggu. |
+| `DAILY_QUOTA` | Pembatasan harian teridentifikasi; periksa kapan kuota pulih. |
+| `SERVICE_TIMEOUT` | Permintaan belum selesai tepat waktu; lanjutkan hasil sebelumnya. |
+| `SERVICE_AUTH` | Kunci/izin ditolak; periksa konfigurasi. |
+| `MODEL_UNAVAILABLE` | Model tidak tersedia pada akun/endpoint. |
+| `CONFIG` / `CONFIG_SLOT` | Kunci belum diatur; isi environment dan redeploy. |
+| `INVALID_REVIEW` | Pemeriksaan tidak lengkap; soal tetap tersedia. |
+| `OUTPUT_INCOMPLETE` / `INVALID_ITEM` | Hasil pembuatan belum lengkap atau tidak sesuai kontrak. |
+| HTTP 404 / bukan JSON | Pastikan seluruh functions ikut dideploy. |
 
-Log dapat ditemukan pada bagian **Functions** proyek Netlify; pilih `analyze` atau `generate`. Nama menu dashboard dapat berubah. Model dapat diperbarui lewat environment tanpa mengedit kode, asalkan mendukung gambar, JSON, dan endpoint yang dipakai.
+Log function memuat urutan layanan, rentang, durasi dan kode, tanpa teks soal/API key. Pesan teknis berada di **Detail kendala**.
 
-## Verifikasi
+## Batas dan data
 
-Jalankan `npm test` untuk pemeriksaan backend dengan mock provider. Pengujian ini tidak menghubungi atau menagih layanan. Pengujian langsung dengan API produksi tetap perlu dilakukan setelah kunci dipasang. Hasil yang muncul hanya setelah respons layanan sukses; tidak ada hasil soal contoh yang disamarkan sebagai hasil nyata.
+Rekomendasi 1 halaman/10 soal merupakan saran mutu. Batas teknis tetap: 20 MB berkas, 160.000 karakter sumber, 200 soal, PDF teks 100 halaman, PDF pindai/campuran 5 halaman. Lima halaman digabung berpasangan menjadi maksimal tiga gambar. Dokumen melebihi batas pindai tidak dipotong diam-diam.
 
-## Rujukan teknis
+Mammoth mengekstrak teks Word; gambar tertanam tidak dibaca. Gunakan PDF pindai bila gambar diperlukan. Deteksi gambar pada PDF bergantung hasil ekstraksi teks; periksa pratinjau. Jumlah kata dihitung dari transkripsi bacaan, termasuk judul dan angka, tidak termasuk soal/opsi. Akurasi pindai bergantung kualitas transkripsi.
 
-Diperiksa 27 September 2026:
-- https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash
-- https://ai.google.dev/gemini-api/docs/structured-output
-- https://console.groq.com/docs/vision
+Sumber, koreksi dan hasil berada dalam memori halaman. Menutup/memuat ulang menghapusnya. `sessionStorage` hanya menyimpan tanda pop-up sudah ditutup, bukan isi soal. Tidak ada database/server storage aplikasi. Konten dikirim ke penyedia untuk pemrosesan dan tunduk pada kebijakan penyedia. Pustaka impor/ekspor memerlukan jsDelivr/cdnjs.
+
+## Isi paket dan pengujian
+
+`public/index.html`, `netlify/functions/{analyze,generate,passage,review}.cjs`, modul bersama `lib/core.cjs`, `netlify.toml`, `.env.example`, serta pengujian backend.
+
+Jalankan `npm test`. Pengujian memakai respons simulasi, tidak memanggil API produksi. Pengujian browser memakai pustaka Word/PDF asli untuk impor/ekspor, sementara respons pembuatan/pemeriksaan disimulasikan. Kredensial API dan akses deployment produksi belum tersedia dalam sesi pengerjaan; lakukan uji langsung setelah pemasangan.
+
+Rujukan teknis:
 - https://docs.netlify.com/build/functions/configuration/
-
-Default Groq memakai Qwen 3.8 27B sebagai model setara pengganti contoh Qwen 3.6 pada spesifikasi, sesuai dokumentasi vision saat pengerjaan. Ketersediaan aktual bergantung akun dan perubahan penyedia.
-
-### Hasil pemeriksaan paket
-
-- Lima pengujian backend lulus: validasi input, validasi hasil, fallback tiga layanan, konfigurasi kosong, dan origin.
-- Uji browser desktop/ponsel lulus dengan respons endpoint simulasi: konfirmasi manual, enam butir campuran, melanjutkan batch gagal tanpa duplikasi, sinkronisasi suntingan bacaan, dan tidak ada galat JavaScript/overflow horizontal pada lebar 390 px.
-- Ekspor Word dan PDF asli berhasil; kedua hasil dapat diimpor kembali. Pemeriksaan isi memastikan suntingan masuk dalam unduhan dan kunci dimulai pada halaman terpisah.
-- PDF pindai lima halaman menghasilkan tiga gambar gabungan; enam halaman ditolak dengan pesan pembagian berkas.
-- Tampilan desktop, ponsel, dan halaman PDF diperiksa secara visual.
-- Layanan Gemini/Groq produksi dan deployment Netlify belum diuji karena tidak tersedia kredensial layanan/hosting dalam sesi pengerjaan.
-
-## Pembaruan telaah per nomor
-
-Telaah keseluruhan hanya menampilkan jumlah soal dan bahasa terdeteksi. Telaah pola berupa tabel satu baris per nomor: jenis teks, jenis soal, tingkat kesulitan, taksonomi Barrett, level CEFR, dan perkiraan kisi-kisi soal (indikator). Seluruh kolom dianalisis per butir dan turut menjadi acuan pembuatan soal baru. Kisi-kisi bukan kutipan dokumen kurikulum resmi; kesulitan dan CEFR berupa perkiraan. Barrett diterapkan pada pemahaman bacaan dan ditandai tidak relevan untuk butir di luar cakupannya.
-
-Kontrak terbaru: `analisis` berisi `jumlahSoal`, `bahasa`, dan `polaButir`. Setiap pola butir menyertakan `jenisTeks`, `tingkatKesulitan`, `taksonomiBarrett`, `levelCEFR`, dan `kisiKisi`, selain field internal sebelumnya. Ganti frontend dan functions sekaligus saat redeploy.
-
-Rujukan kategori Barrett: https://eric.ed.gov/?id=ED064672
-
-## Pembaruan bacaan/teks terdeteksi
-
-Ditambahkan tabel di antara telaah keseluruhan dan telaah per butir, dengan kolom jenis teks, level CEFR bacaan, jumlah kata, dan nomor soal terkait. Setiap bacaan unik tampil sekali walaupun digunakan beberapa soal. Bacaan berbeda dengan genre yang sama tetap memiliki baris terpisah.
-
-`analisis.bacaanTerdeteksi` berisi `id`, `jenisTeks`, `levelCEFR`, dan `teks` (transkripsi sumber). Server menghitung `jumlahKata` dari transkripsi dan menurunkan `untukSoal` dari grup stimulus setiap butir; angka tidak hanya dipercayakan pada perkiraan model. Judul dan isi bacaan dihitung, pertanyaan/opsi/petunjuk ujian dikecualikan. Kata berapostrof atau bertanda hubung dihitung satu kata; angka dihitung sebagai token kata. Akurasi pada pindai bergantung keterbacaan transkripsi. Soal tanpa bacaan menampilkan pesan tidak ditemukan stimulus.
-
-Deploy ulang frontend dan backend bersama untuk menggunakan kontrak baru ini.
-
-## Pengingat unggah
-
-Pop-up tampil saat halaman unggah pertama kali dibuka dan saat pengguna kembali ke tab Unggah berkas. Pesan menegaskan rekomendasi **1 halaman dengan tidak lebih dari 10 soal** untuk hasil terbaik. Tombol Saya mengerti atau Escape menutup pop-up; pengingat ringkas tetap terlihat dan dapat dibuka ulang. Ini rekomendasi kualitas, bukan batas pemrosesan baru.
-
-## Perbaikan kegagalan langkah ketiga
-
-Kode sebelumnya membagi 53 detik ke tiga kunci (sekitar 17 detik per percobaan), lalu menyamarkan semua kegagalan sebagai PROCESS_FAILED. Validasi juga membandingkan bacaan berulang secara persis. Keduanya merupakan titik rawan yang ditemukan dari kode; penyebab kejadian pada akun produksi tidak dapat dipastikan tanpa log.
-
-Revisi memakai permintaan terpisah per slot layanan, sehingga tiap percobaan generate memperoleh 50 detik tanpa memperpanjang satu eksekusi Netlify melewati 60 detik. Fallback tetap berurutan. Hasil batch sebelumnya disimpan saat gagal; tombol coba kembali melanjutkan dari nomor yang belum selesai. Retry dibatasi tiga layanan per batch, dengan satu penurunan ukuran batch dari dua ke satu. Kuota/izin yang gagal tidak memicu penurunan batch tanpa alasan.
-
-Bacaan baru dikembalikan sekali untuk grup yang sama, lalu server menempelkan bacaan tersebut pada butir terkait. Bacaan yang sudah ada menjadi acuan tetap. Perbedaan spasi/baris baru dinormalisasi, tetapi perubahan isi substantif tetap ditolak. Nomor berbentuk string angka, kapitalisasi jenis soal, dan kunci seperti a. dinormalisasi tanpa mengubah jawaban. Jumlah soal, opsi, kunci, dan kelengkapan tetap divalidasi.
-
-Log function memuat slot, rentang soal, durasi, dan kode galat tanpa isi soal/kunci API. UI menampilkan kode penyebab, bukan pesan PROCESS_FAILED umum. Sembilan tes backend serta uji browser pemulihan batch/fallback/resume lulus menggunakan respons simulasi. API produksi belum diuji.
-
-**Deploy ulang public/index.html dan seluruh netlify/functions bersama, lalu muat ulang halaman dan lakukan analisis baru.** Alur generate baru bergantung pada kedua bagian. Rujukan batas eksekusi: https://docs.netlify.com/build/functions/configuration/
+- https://ai.google.dev/gemini-api/docs/rate-limits
+- https://console.groq.com/docs/rate-limits
+- https://console.groq.com/docs/vision
+- https://eric.ed.gov/?id=ED064672
